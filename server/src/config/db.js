@@ -7,10 +7,14 @@ const pool = mysql.createPool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    port: process.env.DB_PORT || 4000, // <--- Agregamos el puerto (TiDB usa 4000)
     waitForConnections: true,
-    connectionLimit: 10, // Cuántas conexiones simultáneas permites
-    queueLimit: 0
+    connectionLimit: 10,
+    queueLimit: 0,
+    // 👇👇 ESTO ES LO QUE TE FALTA 👇👇
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
-// Usamos pool.promise() para poder usar async/await más adelante (más moderno)
 module.exports = pool.promise();
