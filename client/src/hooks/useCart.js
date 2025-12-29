@@ -28,9 +28,11 @@ export const useCart = () => {
   const enviarVenta = async () => {
     if (carrito.length === 0) return false;
     
+    // AQUÍ ESTABA EL ERROR:
+    // Antes decías "items:", pero el backend espera "carrito:"
     const venta = {
         total: total,
-        items: carrito.map(p => ({ id: p.id, precio: p.precio, cantidad: 1 }))
+        carrito: carrito.map(p => ({ id: p.id, precio: p.precio, cantidad: 1 })) 
     };
 
     const exito = await createSale(venta);
