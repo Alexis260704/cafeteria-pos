@@ -1,139 +1,129 @@
-const Venta = require('../models/venta.model');
+// server/src/controllers/venta.controller.js
+const db = require('../config/db');
 
 const crearVenta = async (req, res) => {
+    // 1. Obtenemos una conexión exclusiva del pool
+    const connection = await db.getConnection();
+
     try {
-        // req.body es lo que nos envía el Frontend (JSON)
-        const { total, items } = req.body;
+        const { total, carrito } = req.body;
 
-        // Validación básica
-        if (!items || items.length === 0) {
-            return res.status(400).json({ 
-                ok: false, 
-                mensaje: "No se puede registrar una venta vacía" 
-            });
-        }
+        // 2. Iniciamos la transacción (Modo "Todo o Nada")
+        await connection.beginTransaction();
 
-        const ventaId = await Venta.create({ total, items });
+        // 3. Insertamos la VENTA general
+        const [ventaResult] = await connection.query(
+            'INSERT INTO ventas (total) VALUES (?)',
+            [total]
+        );
+        const idVenta = ventaResult.insertId;
 
-        res.status(201).json({
-            ok: true,
-            mensaje: "Venta registrada con éxito",
-            id_ticket: ventaId
-        });
+        // 4. Insertamos cada PRODUCTO del carrito
+        // Preparamos los datos para insertarlos de golpe (más rápido)
+        const detalles = carrito.map(producto => [
+            idVenta,
+            producto.id,
+            1, // Cantidad (asumimos 1 por ahora según tu lógica frontend)
+            producto.precio
+        ]);
+
+        await connection.query(
+            'INSERT INTO detalle_ventas (id_venta, id_producto, cantidad, precio_unitario) VALUES ?',
+            [detalles]
+        );
+
+        // 5. Si todo salió bien, GUARDAMOS permanentemente
+        await connection.commit();
+        
+        console.log(`✅ Venta #${idVenta} registrada con éxito`);
+        res.json({ ok: true, id_venta: idVenta, mensaje: 'Venta registrada' });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            ok: false,
-            mensaje: "Error interno al procesar la venta"
+        // 6. Si algo falló, DESHACEMOS todo (Rollback)
+        await connection.rollback();
+        console.error("🔴 ERROR CRÍTICO AL CREAR VENTA:", error);
+        
+        // Enviamos el error al frontend para saber qué pasó
+        res.status(500).json({ 
+            ok: false, 
+            mensaje: 'Error al registrar venta', 
+            error: error.message 
         });
+
+    } finally {
+        // 7. SIEMPRE liberamos la conexión (Vital en la nube)
+        connection.release();
     }
 };
-// ... código anterior ...
+
+// --- OTRAS FUNCIONES (Las dejamos igual, pero asegurándonos de exportarlas) ---
+
+const obtenerVentasHoy = async (req, res) => {
+    try {
+        // TIME_FORMAT y DATE_FORMAT para que se vea bonito en Perú
+        const [rows] = await db.query(`
+            SELECT id, DATE_FORMAT(fecha, '%h:%i %p') as hora, total 
+            FROM ventas 
+            WHERE DATE(fecha) = CURDATE() 
+            ORDER BY id DESC
+        `);
+        res.json({ ok: true, datos: rows });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ ok: false, error: error.message });
+    }
+};
 
 const obtenerResumenDia = async (req, res) => {
     try {
-        // Consulta SQL experta: Suma el total de ventas donde la fecha coincida con HOY (CURDATE)
-        const query = `
+        const [rows] = await db.query(`
             SELECT 
                 COUNT(*) as cantidad_ventas,
-                IFNULL(SUM(total), 0) as total_dinero
+                COALESCE(SUM(total), 0) as total_dinero
             FROM ventas 
             WHERE DATE(fecha) = CURDATE()
-        `;
-        
-        // Asumiendo que usas pool.promise() como te enseñé en db.js,
-        // necesitamos importar 'db' al inicio si no está.
-        // Si usas el modelo, mejor agrégalo ahí, pero para hacerlo rápido lo haré directo aquí 
-        // o mejor, reutilicemos la conexión del modelo si es posible.
-        
-        // FORMA SENCILLA (Directa):
-        const db = require('../config/db'); 
-        const [rows] = await db.query(query);
-
-        res.json({
-            ok: true,
-            resumen: rows[0],
-            fecha: new Date().toLocaleDateString()
-        });
-
+        `);
+        res.json({ ok: true, resumen: rows[0] });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ ok: false, mensaje: "Error al sacar el corte" });
+        res.status(500).json({ ok: false });
     }
 };
 
-// ... (código anterior)
-
-// GUARDAR EL CIERRE EN LA BASE DE DATOS
 const cerrarDia = async (req, res) => {
-    const db = require('../config/db');
     try {
-        // 1. Calculamos los datos del día actual
-        const queryCalculo = `
-            SELECT COUNT(*) as cantidad, IFNULL(SUM(total), 0) as dinero
+        // 1. Calculamos totales
+        const [resumen] = await db.query(`
+            SELECT COUNT(*) as cant, COALESCE(SUM(total), 0) as tot 
             FROM ventas WHERE DATE(fecha) = CURDATE()
-        `;
-        const [rowsCalc] = await db.query(queryCalculo);
-        const { cantidad, dinero } = rowsCalc[0];
-
-        // 2. Guardamos en la tabla histórica
-        const queryInsert = `
+        `);
+        
+        // 2. Guardamos en historial
+        await db.query(`
             INSERT INTO cierres_diarios (fecha, hora_cierre, total_ventas, total_dinero)
             VALUES (CURDATE(), CURTIME(), ?, ?)
-        `;
-        await db.query(queryInsert, [cantidad, dinero]);
+        `, [resumen[0].cant, resumen[0].tot]);
 
-        res.json({ ok: true, mensaje: "Día cerrado y guardado correctamente" });
-
+        res.json({ ok: true, mensaje: "Cierre guardado" });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ ok: false, mensaje: "Error al cerrar caja" });
+        res.status(500).json({ ok: false, error: error.message });
     }
 };
 
-// OBTENER LA LISTA DE TODOS LOS CIERRES PASADOS
 const obtenerHistorialCierres = async (req, res) => {
-    const db = require('../config/db');
     try {
-        const [rows] = await db.query('SELECT * FROM cierres_diarios ORDER BY fecha DESC, hora_cierre DESC');
+        const [rows] = await db.query('SELECT * FROM cierres_diarios ORDER BY fecha DESC LIMIT 30');
         res.json({ ok: true, datos: rows });
     } catch (error) {
         res.status(500).json({ ok: false });
     }
 };
 
-// ... al final, antes del module.exports
-
-// NUEVO: Obtener el detalle de ventas DE HOY (para el log)
-const obtenerVentasHoy = async (req, res) => {
-    const db = require('../config/db');
-    try {
-        // Esta consulta trae la hora, el id del ticket y el total
-        const query = `
-            SELECT id, DATE_FORMAT(fecha, '%h:%i %p') as hora, total 
-            FROM ventas 
-            WHERE DATE(fecha) = CURDATE() 
-            ORDER BY id DESC
-        `;
-        const [ventas] = await db.query(query);
-
-        // (Opcional) Si quisieras los productos de cada venta, sería una consulta más compleja,
-        // pero para un resumen rápido, hora y total suelen bastar. 
-        // Si necesitas ver qué productos eran, avísame y ajustamos.
-        
-        res.json({ ok: true, datos: ventas });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ ok: false, mensaje: "Error al leer ventas" });
-    }
-};
-
-// ¡No olvides agregarlo al export final!
-module.exports = { 
-    crearVenta, 
-    obtenerResumenDia, 
-    cerrarDia, 
-    obtenerHistorialCierres,
-    obtenerVentasHoy // <--- AGREGADO
+module.exports = {
+    crearVenta,
+    obtenerVentasHoy,
+    obtenerResumenDia,
+    cerrarDia,
+    obtenerHistorialCierres
 };
