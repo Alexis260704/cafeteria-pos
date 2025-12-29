@@ -68,21 +68,47 @@ const crearVenta = async (req, res) => {
 
 // --- OTRAS FUNCIONES (Las dejamos igual, pero asegurándonos de exportarlas) ---
 
+// server/src/controllers/venta.controller.js
+
+// ... (mantén las importaciones y crearVenta igual)
+
 const obtenerVentasHoy = async (req, res) => {
     try {
-        // TIME_FORMAT y DATE_FORMAT para que se vea bonito en Perú
-        const [rows] = await db.query(`
-            SELECT id, DATE_FORMAT(fecha, '%h:%i %p') as hora, total 
-            FROM ventas 
-            WHERE DATE(fecha) = CURDATE() 
-            ORDER BY id DESC
-        `);
+        // Esta consulta hace 3 cosas:
+        // 1. Trae la hora y el total.
+        // 2. USA GROUP_CONCAT: Junta "1x Cafe, 2x Waffle" en un solo texto.
+        // 3. USA UNA SUB-CONSULTA (WHERE): Solo trae ventas hechas DESPUÉS del último cierre.
+        
+        const query = `
+            SELECT 
+                v.id, 
+                DATE_FORMAT(v.fecha, '%h:%i %p') as hora, 
+                v.total,
+                GROUP_CONCAT(
+                    CONCAT(dv.cantidad, 'x ', p.nombre) SEPARATOR ', '
+                ) as descripcion
+            FROM ventas v
+            JOIN detalle_ventas dv ON v.id = dv.id_venta
+            JOIN productos p ON dv.id_producto = p.id
+            WHERE DATE(v.fecha) = CURDATE()
+            AND v.fecha > (
+                SELECT COALESCE(MAX(CONCAT(fecha, ' ', hora_cierre)), '2000-01-01 00:00:00') 
+                FROM cierres_diarios
+            )
+            GROUP BY v.id 
+            ORDER BY v.id DESC
+        `;
+        
+        const [rows] = await db.query(query);
         res.json({ ok: true, datos: rows });
     } catch (error) {
         console.error(error);
         res.status(500).json({ ok: false, error: error.message });
     }
 };
+
+// ... (mantén obtenerResumenDia, cerrarDia, etc. igual)
+// Asegúrate de que obtenerVentasHoy siga en el module.exports al final
 
 const obtenerResumenDia = async (req, res) => {
     try {
