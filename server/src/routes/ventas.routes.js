@@ -1,21 +1,23 @@
 const { Router } = require('express');
 const router = Router();
 
-// 👇 AQUÍ ES DONDE TIENES QUE AGREGARLO (dentro de las llaves)
+// 👇 AQUÍ ES DONDE FALTABA AGREGARLO
 const { 
     crearVenta, 
+    obtenerVentasHoy, 
     obtenerResumenDia, 
     cerrarDia, 
     obtenerHistorialCierres,
-    obtenerVentasHoy // <--- ¡Falta agregar esto aquí!
+    obtenerVentasPorFecha // <--- ¡IMPORTANTE: Agrega esta línea!
 } = require('../controllers/venta.controller');
 
 router.post('/', crearVenta);
+router.get('/hoy', obtenerVentasHoy);
 router.get('/corte-dia', obtenerResumenDia);
 router.post('/cerrar-dia', cerrarDia);
 router.get('/historial', obtenerHistorialCierres);
-router.get('/hoy', obtenerVentasHoy); // Ahora sí funcionará
-// Agrega esta línea antes del module.exports
+
+// Esta es la nueva ruta que agregamos
 router.get('/fecha/:fecha', obtenerVentasPorFecha);
 
 module.exports = router;
