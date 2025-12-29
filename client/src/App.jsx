@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getProducts } from './services/api';
+// IMPORTAMOS TODAS LAS FUNCIONES NUEVAS
+import { getProducts, getVentasHoy, getCorteDia, getHistorial, cerrarDiaDB } from './services/api';
 import { useCart } from './hooks/useCart';
 import { formatCurrency } from './utils/format';
 import logoImg from './assets/logo.png';
@@ -35,33 +36,33 @@ function App() {
     if (exito) {
         setVista('CATALOGO');
         alert("✅ Venta registrada");
+    } else {
+        alert("❌ Error al registrar venta. Revisa tu conexión.");
     }
   };
 
+  // AQUÍ ESTABA EL ERROR: Usábamos fetch directo a localhost. Ahora usamos la API.
   const cargarMovimientos = async () => {
-    const res = await fetch('http://localhost:3000/api/ventas/hoy');
-    const data = await res.json();
-    setMovimientosHoy(data.datos);
+    const data = await getVentasHoy();
+    setMovimientosHoy(data.datos || []);
     setVista('MOVIMIENTOS');
   };
 
   const cargarCorte = async () => {
-    const res = await fetch('http://localhost:3000/api/ventas/corte-dia');
-    const data = await res.json();
+    const data = await getCorteDia();
     setDatosCorte(data.resumen);
     setVista('CORTE');
   };
 
   const cargarHistorial = async () => {
-    const res = await fetch('http://localhost:3000/api/ventas/historial');
-    const data = await res.json();
+    const data = await getHistorial();
     setListaHistorial(data.datos || []);
     setVista('HISTORIAL');
   };
 
   const cerrarDiaDefinitivo = async () => {
     if (!window.confirm("⚠️ ¿CERRAR CAJA?\nSe bloqueará el registro de ventas por hoy.")) return;
-    await fetch('http://localhost:3000/api/ventas/cerrar-dia', { method: 'POST' });
+    await cerrarDiaDB();
     alert("🌙 Caja cerrada. ¡Hasta mañana!");
     window.location.reload();
   };
@@ -167,8 +168,8 @@ function App() {
             
             <div className="bg-amber-900/50 p-6 rounded-2xl mb-8 border border-amber-800">
                 <p className="text-amber-200/60 mb-2 uppercase text-xs tracking-widest">Total Recaudado</p>
-                <p className="text-5xl font-bold text-white">{formatCurrency(datosCorte?.total_dinero)}</p>
-                <p className="mt-4 text-sm text-amber-300">{datosCorte?.cantidad_ventas} tickets emitidos</p>
+                <p className="text-5xl font-bold text-white">{formatCurrency(datosCorte?.total_dinero || 0)}</p>
+                <p className="mt-4 text-sm text-amber-300">{datosCorte?.cantidad_ventas || 0} tickets emitidos</p>
             </div>
 
             <button onClick={cerrarDiaDefinitivo} className="bg-red-800 hover:bg-red-900 w-full py-4 rounded-xl font-bold text-lg mb-4 text-red-100 transition shadow-lg">
@@ -217,14 +218,8 @@ function App() {
       {/* HEADER BLANCO ALTO */}
       <div className="bg-white px-4 pt-2 pb-2 shadow-sm z-10 sticky top-0 border-b border-amber-100/50">
         
-        {/* Fila Superior: Logo y Configuración */}
         <div className="flex justify-between items-center mb-3 relative h-16">
-            
-            {/* LOGO CENTRADO Y LIMPIO */}
             <div className="absolute left-1/2 transform -translate-x-1/2 flex justify-center items-center w-full">
-                {/* NOTA: Si usas la imagen con fondo borrado, quita 'mix-blend-multiply'.
-                   Si sigues con la de cuadritos, déjalo, ayudará un poco.
-                */}
                 <img 
                     src={logoImg} 
                     alt="Café Cultura Logo" 
@@ -232,7 +227,6 @@ function App() {
                 />
             </div>
             
-            {/* Botón Menú a la derecha (Empujado al final) */}
             <button 
                 onClick={() => setVista('MENU')} 
                 className="ml-auto relative z-20 p-2 bg-amber-50 rounded-xl text-amber-900 hover:bg-amber-100 transition border border-amber-100 shadow-sm"
@@ -241,14 +235,13 @@ function App() {
             </button>
         </div>
 
-        {/* Categorías (Píldoras) */}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide pt-1">
             {categorias.map(cat => (
               <button key={cat} onClick={() => setCategoriaActiva(cat)}
                 className={`px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border shadow-sm
                   ${categoriaActiva === cat 
-                    ? 'bg-amber-900 text-white border-amber-900 transform scale-105' // Activo: Crece un poco
-                    : 'bg-white text-amber-900 border-amber-100 hover:bg-amber-50' // Inactivo
+                    ? 'bg-amber-900 text-white border-amber-900 transform scale-105' 
+                    : 'bg-white text-amber-900 border-amber-100 hover:bg-amber-50'
                   }`}>
                 {cat}
               </button>
@@ -256,7 +249,6 @@ function App() {
         </div>
       </div>
 
-      {/* Grid de Productos */}
       <div className="flex-1 overflow-y-auto p-4 pb-28">
           {cargando ? <p className="text-center mt-10 text-amber-800 animate-pulse">Preparando la cafetera...</p> : (
             <div className="grid grid-cols-2 gap-4">
@@ -264,7 +256,6 @@ function App() {
                 <button key={prod.id} onClick={() => agregarProducto(prod)}
                     className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 active:border-amber-500 active:ring-2 active:ring-amber-200 transition-all text-left h-36 flex flex-col justify-between group overflow-hidden relative">
                     
-                    {/* Decoración de fondo (Círculo sutil) */}
                     <div className="absolute -right-4 -top-4 w-16 h-16 bg-amber-50 rounded-full opacity-50 group-hover:bg-amber-100 transition-colors"></div>
 
                     <span className="font-bold text-stone-700 line-clamp-3 text-sm leading-snug relative z-10 group-active:text-amber-900">
@@ -283,7 +274,6 @@ function App() {
           )}
       </div>
 
-      {/* Botón Flotante de Carrito */}
       {carrito.length > 0 && (
         <div className="absolute bottom-4 left-4 right-4 animate-bounce-small z-50">
             <button onClick={() => setVista('TICKET')} className="w-full bg-amber-900 text-white p-4 rounded-2xl shadow-2xl flex justify-between items-center border border-amber-700 backdrop-blur-md bg-opacity-95">
