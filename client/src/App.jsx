@@ -102,19 +102,31 @@ function App() {
         <div className="h-screen bg-amber-50 flex flex-col">
             <div className="p-4 border-b border-amber-200 flex items-center bg-white shadow-sm">
                 <button onClick={() => setVista('MENU')} className="text-2xl mr-4 text-amber-800">←</button>
-                <h2 className="text-xl font-bold text-amber-900">Ventas de Hoy</h2>
+                <h2 className="text-xl font-bold text-amber-900">Ventas Activas (Turno Actual)</h2>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-                {movimientosHoy.length === 0 ? <p className="text-center mt-10 text-amber-800/50">Aún no hay ventas hoy.</p> : 
+                {movimientosHoy.length === 0 ? (
+                    <div className="text-center mt-20 text-amber-800/50">
+                        <p className="text-4xl mb-2">✨</p>
+                        <p>Todo limpio.</p>
+                        <p className="text-xs mt-2">No hay ventas nuevas desde el último cierre.</p>
+                    </div>
+                ) : (
                  movimientosHoy.map((v) => (
                     <div key={v.id} className="flex justify-between items-center py-4 border-b border-amber-200 bg-white px-4 rounded-lg mb-2 shadow-sm">
-                        <div>
-                            <p className="font-bold text-amber-900">Ticket #{v.id}</p>
-                            <p className="text-sm text-amber-600">Hora: {v.hora}</p>
+                        <div className="flex-1 pr-4"> {/* Agregamos flex-1 para que ocupe espacio */}
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="font-bold text-amber-900">#{v.id}</span>
+                                <span className="text-xs text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">{v.hora}</span>
+                            </div>
+                            {/* AQUÍ MOSTRAMOS LOS PRODUCTOS 👇 */}
+                            <p className="text-xs text-stone-500 leading-snug">
+                                {v.descripcion}
+                            </p>
                         </div>
-                        <span className="font-bold text-amber-700 text-lg">{formatCurrency(v.total)}</span>
+                        <span className="font-bold text-amber-700 text-lg whitespace-nowrap">{formatCurrency(v.total)}</span>
                     </div>
-                ))}
+                )))}
             </div>
         </div>
     );
