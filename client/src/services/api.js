@@ -1,4 +1,5 @@
-const API_URL = 'http://localhost:3000/api';
+//const API_URL = 'http://localhost:3000/api
+const API_URL = 'https://cafeteria-api-syy3.onrender.com/api';
 
 export const getProducts = async () => {
     const res = await fetch(`${API_URL}/productos`);
