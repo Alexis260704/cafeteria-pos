@@ -156,10 +156,42 @@ const obtenerHistorialCierres = async (req, res) => {
     }
 };
 
+// Agrega esto ANTES del module.exports
+
+const obtenerVentasPorFecha = async (req, res) => {
+    try {
+        const { fecha } = req.params; // Recibimos la fecha (YYYY-MM-DD)
+
+        const query = `
+            SELECT 
+                v.id, 
+                DATE_FORMAT(v.fecha, '%h:%i %p') as hora, 
+                v.total,
+                GROUP_CONCAT(
+                    CONCAT(dv.cantidad, 'x ', p.nombre) SEPARATOR ', '
+                ) as descripcion
+            FROM ventas v
+            JOIN detalle_ventas dv ON v.id = dv.id_venta
+            JOIN productos p ON dv.id_producto = p.id
+            WHERE DATE(v.fecha) = ? 
+            GROUP BY v.id 
+            ORDER BY v.id DESC
+        `;
+        
+        const [rows] = await db.query(query, [fecha]);
+        res.json({ ok: true, datos: rows });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ ok: false, error: error.message });
+    }
+};
+
+// ¡NO OLVIDES AGREGARLO AL EXPORT FINAL!
 module.exports = {
     crearVenta,
     obtenerVentasHoy,
     obtenerResumenDia,
     cerrarDia,
-    obtenerHistorialCierres
+    obtenerHistorialCierres,
+    obtenerVentasPorFecha // <--- NUEVO
 };

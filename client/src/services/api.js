@@ -64,3 +64,13 @@ export const cerrarDiaDB = async () => {
         return false;
     }
 };
+export const getVentasPorFecha = async (fechaString) => {
+    try {
+        // fechaString debe ser YYYY-MM-DD
+        const res = await fetch(`${API_URL}/ventas/fecha/${fechaString}`);
+        return await res.json();
+    } catch (error) {
+        console.error("Error cargando detalle fecha:", error);
+        return { ok: false, datos: [] };
+    }
+};
