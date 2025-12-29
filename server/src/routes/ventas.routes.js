@@ -15,5 +15,7 @@ router.get('/corte-dia', obtenerResumenDia);
 router.post('/cerrar-dia', cerrarDia);
 router.get('/historial', obtenerHistorialCierres);
 router.get('/hoy', obtenerVentasHoy); // Ahora sí funcionará
+// Agrega esta línea antes del module.exports
+router.get('/fecha/:fecha', obtenerVentasPorFecha);
 
 module.exports = router;
