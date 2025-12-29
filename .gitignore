@@ -1,0 +1,12 @@
+# Ignorar las carpetas pesadas de librerías
+node_modules/
+*/node_modules/
+
+# Ignorar archivos de construcción
+dist/
+build/
+
+# Ignorar mis contraseñas de base de datos (MUY IMPORTANTE)
+.env
+*/.env
+.DS_Store
