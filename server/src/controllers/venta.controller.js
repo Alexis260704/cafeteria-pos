@@ -4,9 +4,19 @@ const db = require('../config/db');
 const crearVenta = async (req, res) => {
     // 1. Obtenemos una conexión exclusiva del pool
     const connection = await db.getConnection();
-
+    
     try {
+        // 👇 AGREGA ESTAS 3 LÍNEAS PARA ESPIAR 👇
+        console.log("📦 DATOS RECIBIDOS EN EL BACKEND:");
+        console.log(req.body); 
+        console.log("--------------------------------");
+
         const { total, carrito } = req.body;
+
+        // Validación de seguridad (Para que no explote si llega vacío)
+        if (!carrito || !Array.isArray(carrito)) {
+            throw new Error("El carrito llegó vacío o con el formato incorrecto");
+        }
 
         // 2. Iniciamos la transacción (Modo "Todo o Nada")
         await connection.beginTransaction();
